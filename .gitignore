@@ -1,0 +1,22 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Streamlit / local runtime
+.streamlit/secrets.toml
+.streamlit/config.toml
+
+# Jupyter / notebook checkpoints
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+
+# Local data caches (optional, if you don't want history files tracked)
+data/*.csv
