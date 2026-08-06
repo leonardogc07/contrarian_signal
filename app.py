@@ -67,7 +67,9 @@ if st.sidebar.button("Fetch latest ICI flows"):
 
 st.sidebar.divider()
 st.sidebar.subheader("Manual entry (fallback)")
-st.sidebar.caption("Use these if a live fetch above fails or you're reading the numbers off the source site yourself.")
+st.sidebar.caption(
+    "Use these if a live fetch above fails or you're reading the numbers off the source site yourself."
+)
 
 with st.sidebar.form("manual_aaii"):
     st.markdown("**AAII**")
@@ -75,19 +77,32 @@ with st.sidebar.form("manual_aaii"):
     m_bear = st.number_input("Bearish %", 0.0, 100.0, 35.0)
     if st.form_submit_button("Save AAII manual entry"):
         st.session_state["aaii"] = ds.AAIIReading(
-            date=dt.date.today(), bullish=m_bull, neutral=max(0.0, 100 - m_bull - m_bear), bearish=m_bear
+            date=dt.date.today(),
+            bullish=m_bull,
+            neutral=max(0.0, 100 - m_bull - m_bear),
+            bearish=m_bear,
         )
-        ds._append_cache(ds.AAII_CACHE, {
-            "date": dt.date.today(), "bullish": m_bull,
-            "neutral": max(0.0, 100 - m_bull - m_bear), "bearish": m_bear,
-        })
+        ds._append_cache(
+            ds.AAII_CACHE,
+            {
+                "date": dt.date.today(),
+                "bullish": m_bull,
+                "neutral": max(0.0, 100 - m_bull - m_bear),
+                "bearish": m_bear,
+            },
+        )
 
 with st.sidebar.form("manual_putcall"):
     st.markdown("**Put/Call Ratio**")
     m_ratio = st.number_input("Ratio", 0.0, 3.0, 0.7, step=0.01)
     if st.form_submit_button("Save Put/Call manual entry"):
-        st.session_state["putcall"] = ds.PutCallReading(date=dt.date.today(), ratio=m_ratio, source="manual")
-        ds._append_cache(ds.PUTCALL_CACHE, {"date": dt.date.today(), "ratio": m_ratio, "source": "manual"})
+        st.session_state["putcall"] = ds.PutCallReading(
+            date=dt.date.today(), ratio=m_ratio, source="manual"
+        )
+        ds._append_cache(
+            ds.PUTCALL_CACHE,
+            {"date": dt.date.today(), "ratio": m_ratio, "source": "manual"},
+        )
 
 with st.sidebar.form("manual_ici"):
     st.markdown("**ICI Flows (millions $)**")
@@ -95,13 +110,20 @@ with st.sidebar.form("manual_ici"):
     m_bond = st.number_input("Bond flow", value=0.0, step=100.0)
     if st.form_submit_button("Save ICI manual entry"):
         st.session_state["ici"] = ds.ICIFlowReading(
-            date=dt.date.today(), equity_flow_millions=m_equity,
-            bond_flow_millions=m_bond, report_title="manual entry",
+            date=dt.date.today(),
+            equity_flow_millions=m_equity,
+            bond_flow_millions=m_bond,
+            report_title="manual entry",
         )
-        ds._append_cache(ds.ICI_CACHE, {
-            "date": dt.date.today(), "equity_flow_millions": m_equity,
-            "bond_flow_millions": m_bond, "report_title": "manual entry",
-        })
+        ds._append_cache(
+            ds.ICI_CACHE,
+            {
+                "date": dt.date.today(),
+                "equity_flow_millions": m_equity,
+                "bond_flow_millions": m_bond,
+                "report_title": "manual entry",
+            },
+        )
 
 # ---------------------------------------------------------------------------
 # Load cached history
@@ -116,10 +138,17 @@ ici_reading = st.session_state.get("ici")
 
 if aaii_reading is None and not aaii_hist.empty:
     last = aaii_hist.iloc[-1]
-    aaii_reading = ds.AAIIReading(date=last["date"], bullish=last["bullish"], neutral=last["neutral"], bearish=last["bearish"])
+    aaii_reading = ds.AAIIReading(
+        date=last["date"],
+        bullish=last["bullish"],
+        neutral=last["neutral"],
+        bearish=last["bearish"],
+    )
 if putcall_reading is None and not putcall_hist.empty:
     last = putcall_hist.iloc[-1]
-    putcall_reading = ds.PutCallReading(date=last["date"], ratio=last["ratio"], source=last.get("source", "cache"))
+    putcall_reading = ds.PutCallReading(
+        date=last["date"], ratio=last["ratio"], source=last.get("source", "cache")
+    )
 if ici_reading is None and not ici_hist.empty:
     last = ici_hist.iloc[-1]
     ici_reading = ds.ICIFlowReading(
@@ -135,22 +164,55 @@ if ici_reading is None and not ici_hist.empty:
 col1, col2, col3 = st.columns(3)
 
 
-def gauge(value: float, title: str, min_v: float, max_v: float, band_low: float, band_high: float) -> go.Figure:
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=value,
-        title={"text": title},
-        gauge={
-            "axis": {"range": [min_v, max_v]},
-            "bar": {"color": "#2c3e50"},
-            "steps": [
-                {"range": [min_v, band_low], "color": "#dfe9f5"},
-                {"range": [band_low, band_high], "color": "#f5f0df"},
-                {"range": [band_high, max_v], "color": "#dfe9f5"},
-            ],
-        },
-    ))
+def gauge(
+    value: float,
+    title: str,
+    min_v: float,
+    max_v: float,
+    band_low: float,
+    band_high: float,
+) -> go.Figure:
+    fig = go.Figure(
+        go.Indicator(
+            mode="gauge+number",
+            value=value,
+            title={"text": title},
+            gauge={
+                "axis": {"range": [min_v, max_v]},
+                "bar": {"color": "#2c3e50"},
+                "steps": [
+                    {"range": [min_v, band_low], "color": "#dfe9f5"},
+                    {"range": [band_low, band_high], "color": "#f5f0df"},
+                    {"range": [band_high, max_v], "color": "#dfe9f5"},
+                ],
+            },
+        )
+    )
     fig.update_layout(height=220, margin=dict(l=20, r=20, t=40, b=10))
+    return fig
+
+
+def history_chart(df: pd.DataFrame, columns: list[str], title: str) -> go.Figure:
+    fig = go.Figure()
+    for column in columns:
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df[column],
+                mode="lines+markers",
+                name=column,
+                text=[d.strftime("%Y-%m-%d") for d in df.index],
+                textposition="top center",
+                hovertemplate="%{y:.2f}<br>%{text}<extra></extra>",
+            )
+        )
+    fig.update_layout(
+        title=title,
+        xaxis_title="Date",
+        yaxis_title="Value",
+        hovermode="closest",
+        margin=dict(l=20, r=20, t=40, b=10),
+    )
     return fig
 
 
@@ -158,7 +220,9 @@ with col1:
     st.subheader("Piece 1: AAII Sentiment")
     if aaii_reading:
         st.plotly_chart(
-            gauge(aaii_reading.bullish, "Bullish %", 0, 100, 0, sig.AAII_EXTREME_THRESHOLD),
+            gauge(
+                aaii_reading.bullish, "Bullish %", 0, 100, 0, sig.AAII_EXTREME_THRESHOLD
+            ),
             use_container_width=True,
         )
         s1 = sig.aaii_signal(aaii_reading.bullish, aaii_reading.bearish)
@@ -166,7 +230,11 @@ with col1:
         st.metric("Bearish", f"{aaii_reading.bearish:.1f}%")
         st.info(f"**{s1.label}**\n\n{s1.detail}")
         if not aaii_hist.empty:
-            st.line_chart(aaii_hist.set_index("date")[["bullish", "bearish"]])
+            aaii_chart = aaii_hist.set_index("date")[["bullish", "bearish"]]
+            st.plotly_chart(
+                history_chart(aaii_chart, ["bullish", "bearish"], "AAII history"),
+                use_container_width=True,
+            )
     else:
         s1 = sig.Signal("No data", 0, "Fetch or manually enter AAII data.")
         st.warning("No AAII data yet - fetch live or enter manually in the sidebar.")
@@ -175,34 +243,80 @@ with col2:
     st.subheader("Piece 2: Put/Call Ratio")
     if putcall_reading:
         st.plotly_chart(
-            gauge(putcall_reading.ratio, "Put/Call Ratio", 0, 1.5,
-                  sig.PUTCALL_BULLISH_EXTREME, sig.PUTCALL_BEARISH_EXTREME),
+            gauge(
+                putcall_reading.ratio,
+                "Put/Call Ratio",
+                0,
+                1.5,
+                sig.PUTCALL_BULLISH_EXTREME,
+                sig.PUTCALL_BEARISH_EXTREME,
+            ),
             use_container_width=True,
         )
         s2 = sig.putcall_signal(putcall_reading.ratio)
-        st.metric("Ratio", f"{putcall_reading.ratio:.2f}", help=f"Source: {putcall_reading.source}")
+        st.metric(
+            "Ratio",
+            f"{putcall_reading.ratio:.2f}",
+            help=f"Source: {putcall_reading.source}",
+        )
         st.info(f"**{s2.label}**\n\n{s2.detail}")
         if not putcall_hist.empty:
-            st.line_chart(putcall_hist.set_index("date")[["ratio"]])
+            putcall_chart = putcall_hist.set_index("date")[["ratio"]]
+            st.plotly_chart(
+                history_chart(putcall_chart, ["ratio"], "Put/Call history"),
+                use_container_width=True,
+            )
     else:
         s2 = sig.Signal("No data", 0, "Fetch or manually enter put/call data.")
-        st.warning("No put/call data yet - fetch live or enter manually in the sidebar.")
+        st.warning(
+            "No put/call data yet - fetch live or enter manually in the sidebar."
+        )
 
 with col3:
     st.subheader("Piece 3: ICI Fund Flows")
     if ici_reading:
-        st.metric("Equity flow ($M)", f"{ici_reading.equity_flow_millions:,.0f}" if ici_reading.equity_flow_millions is not None else "N/A")
-        st.metric("Bond flow ($M)", f"{ici_reading.bond_flow_millions:,.0f}" if ici_reading.bond_flow_millions is not None else "N/A")
-        s3_equity = sig.ici_signal(ici_hist, "equity_flow_millions", ici_reading.equity_flow_millions)
-        s3_bond = sig.ici_signal(ici_hist, "bond_flow_millions", ici_reading.bond_flow_millions)
+        st.metric(
+            "Equity flow ($M)",
+            (
+                f"{ici_reading.equity_flow_millions:,.0f}"
+                if ici_reading.equity_flow_millions is not None
+                else "N/A"
+            ),
+        )
+        st.metric(
+            "Bond flow ($M)",
+            (
+                f"{ici_reading.bond_flow_millions:,.0f}"
+                if ici_reading.bond_flow_millions is not None
+                else "N/A"
+            ),
+        )
+        s3_equity = sig.ici_signal(
+            ici_hist, "equity_flow_millions", ici_reading.equity_flow_millions
+        )
+        s3_bond = sig.ici_signal(
+            ici_hist, "bond_flow_millions", ici_reading.bond_flow_millions
+        )
         st.info(f"**Equity: {s3_equity.label}**\n\n{s3_equity.detail}")
         st.info(f"**Bond: {s3_bond.label}**\n\n{s3_bond.detail}")
         if not ici_hist.empty:
-            st.line_chart(ici_hist.set_index("date")[["equity_flow_millions", "bond_flow_millions"]])
+            ici_chart = ici_hist.set_index("date")[
+                ["equity_flow_millions", "bond_flow_millions"]
+            ]
+            st.plotly_chart(
+                history_chart(
+                    ici_chart,
+                    ["equity_flow_millions", "bond_flow_millions"],
+                    "ICI fund flow history",
+                ),
+                use_container_width=True,
+            )
     else:
         s3_equity = sig.Signal("No data", 0, "Fetch or manually enter ICI data.")
         s3_bond = sig.Signal("No data", 0, "Fetch or manually enter ICI data.")
-        st.warning("No ICI flow data yet - fetch live or enter manually in the sidebar.")
+        st.warning(
+            "No ICI flow data yet - fetch live or enter manually in the sidebar."
+        )
 
 st.divider()
 st.subheader("Composite Mosaic Read")
@@ -210,12 +324,10 @@ st.text(sig.composite_mosaic([s1, s2, s3_equity, s3_bond]))
 
 st.divider()
 with st.expander("About this tool / limitations"):
-    st.markdown(
-        """
+    st.markdown("""
 - **Not financial advice.** This encodes one specific contrarian heuristic framework; it is one input among many, not a signal generator.
 - **AAII** data comes from a public HTML table on aaii.com and is the most scrape-reliable of the three sources.
 - **Put/Call ratio**: ycharts.com is a paid vendor and often renders values via JavaScript, so scraping it directly is unreliable and may violate their terms. This app defaults to CBOE's own published statistics, with manual entry as a fallback.
 - **ICI fund flows** are published as downloadable spreadsheets that occasionally change format between reports - if parsing fails, read the current week's figures off ici.org and enter them manually.
 - Thresholds (AAII 50%, put/call 0.9 / 0.5, ICI z-score of 2) are the heuristics described in the source guide, not statistically validated cutoffs. Treat the "composite mosaic" number as a talking point for checking your own emotional bias, not a trade trigger.
-        """
-    )
+        """)

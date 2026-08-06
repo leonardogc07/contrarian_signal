@@ -2,7 +2,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pandas as pd
+
 import data_sources as ds
+from data_manager import CSVDataManager
 
 
 class ICIParserTests(unittest.TestCase):
@@ -49,6 +52,40 @@ class ICIParserTests(unittest.TestCase):
 
         self.assertEqual(equity_flow, -29910.0)
         self.assertEqual(bond_flow, 3730.0)
+
+    def test_fetch_data_sorts_rows_by_date_when_present(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "history.csv"
+            pd.DataFrame(
+                {
+                    "date": ["2024-01-02", "2024-01-01", "2024-01-03"],
+                    "value": [2, 1, 3],
+                }
+            ).to_csv(path, index=False)
+
+            manager = CSVDataManager({"Test": str(path)})
+            result = manager.fetch_data("Test")
+
+            self.assertEqual(
+                result["date"].tolist(), ["2024-01-01", "2024-01-02", "2024-01-03"]
+            )
+
+    def test_load_cache_sorts_rows_by_date_when_present(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "cache.csv"
+            pd.DataFrame(
+                {
+                    "date": ["2024-01-02", "2024-01-01", "2024-01-03"],
+                    "value": [2, 1, 3],
+                }
+            ).to_csv(path, index=False)
+
+            result = ds.load_cache(path)
+
+            self.assertEqual(
+                [d.strftime("%Y-%m-%d") for d in result["date"].tolist()],
+                ["2024-01-01", "2024-01-02", "2024-01-03"],
+            )
 
 
 if __name__ == "__main__":

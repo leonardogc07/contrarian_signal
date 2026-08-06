@@ -535,6 +535,39 @@ def fetch_ici_flows() -> ICIFlowReading:
 # ---------------------------------------------------------------------------
 
 
+def _sort_by_date(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy of the frame sorted by the first date-like column."""
+    if df.empty:
+        return df.copy()
+
+    date_columns = [col for col in df.columns if "date" in str(col).lower()]
+    if not date_columns:
+        return df.copy()
+
+    date_column = next(
+        (col for col in date_columns if str(col).lower() == "date"), None
+    )
+    if date_column is None:
+        date_column = date_columns[0]
+
+    if date_column not in df.columns:
+        return df.copy()
+
+    try:
+        parsed_dates = pd.to_datetime(df[date_column], errors="coerce")
+    except (TypeError, ValueError):
+        return df.copy()
+
+    if parsed_dates.isna().all():
+        return df.copy()
+
+    sorted_df = df.copy()
+    sorted_df["_sort_key"] = parsed_dates
+    return sorted_df.sort_values(
+        by=["_sort_key", date_column], na_position="last", kind="mergesort"
+    ).drop(columns=["_sort_key"])
+
+
 def _append_cache(path: Path, row: dict) -> None:
     """Appends a row to a local CSV cache, replacing an existing entry for the same date."""
     new_row = pd.DataFrame([row])
@@ -545,10 +578,13 @@ def _append_cache(path: Path, row: dict) -> None:
         combined = pd.concat([existing, new_row], ignore_index=True)
     else:
         combined = new_row
-    combined.to_csv(path, index=False)
+    _sort_by_date(combined).to_csv(path, index=False)
 
 
 def load_cache(path: Path) -> pd.DataFrame:
     if path.exists():
-        return pd.read_csv(path, parse_dates=["date"])
+        df = pd.read_csv(path, parse_dates=["date"])
+        if df.empty:
+            return df
+        return _sort_by_date(df)
     return pd.DataFrame()
