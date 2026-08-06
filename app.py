@@ -194,6 +194,13 @@ def gauge(
 
 def history_chart(df: pd.DataFrame, columns: list[str], title: str) -> go.Figure:
     fig = go.Figure()
+    index_labels = []
+    for value in df.index:
+        if hasattr(value, "strftime"):
+            index_labels.append(value.strftime("%Y-%m-%d"))
+        else:
+            index_labels.append(str(value))
+
     for column in columns:
         fig.add_trace(
             go.Scatter(
@@ -201,7 +208,7 @@ def history_chart(df: pd.DataFrame, columns: list[str], title: str) -> go.Figure
                 y=df[column],
                 mode="lines+markers",
                 name=column,
-                text=[d.strftime("%Y-%m-%d") for d in df.index],
+                text=index_labels,
                 textposition="top center",
                 hovertemplate="%{y:.2f}<br>%{text}<extra></extra>",
             )
