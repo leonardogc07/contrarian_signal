@@ -18,5 +18,3 @@ env/
 # OS files
 .DS_Store
 
-# Local data caches (optional, if you don't want history files tracked)
-data/*.csv
