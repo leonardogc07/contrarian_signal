@@ -109,6 +109,31 @@ class ICIParserTests(unittest.TestCase):
 
         self.assertEqual(result["value"].tolist(), [7])
 
+    def test_save_data_includes_sha_when_updating_existing_github_file(self):
+        with patch.dict(
+            os.environ,
+            {"GITHUB_REPO": "owner/repo", "GITHUB_TOKEN": "token"},
+            clear=False,
+        ):
+            with patch("data_manager.requests.get") as mock_get, patch(
+                "data_manager.requests.put"
+            ) as mock_put:
+                mock_get.return_value.raise_for_status.return_value = None
+                mock_get.return_value.json.return_value = {"sha": "abc123"}
+                mock_put.return_value.raise_for_status.return_value = None
+
+                manager = CSVDataManager({"Test": "data/test.csv"})
+                status = manager.save_data(
+                    "Test",
+                    pd.DataFrame({"date": ["2024-01-01"], "value": [7]}),
+                )
+
+        self.assertTrue(status.is_ok)
+        mock_get.assert_called_once()
+        mock_put.assert_called_once()
+        self.assertIn("sha", mock_put.call_args.kwargs["json"])
+        self.assertEqual(mock_put.call_args.kwargs["json"]["sha"], "abc123")
+
 
 if __name__ == "__main__":
     unittest.main()

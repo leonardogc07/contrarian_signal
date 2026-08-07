@@ -123,19 +123,38 @@ class CSVDataManager:
             content = sorted_df.to_csv(index=False).encode("utf-8")
             encoded = base64.b64encode(content).decode("utf-8")
             url = f"https://api.github.com/repos/{repo}/contents/{path}"
-            response = requests.put(
+
+            metadata_response = requests.get(
                 url,
                 headers={
                     "Authorization": f"token {token}",
                     "Accept": "application/vnd.github+json",
                 },
-                json={
-                    "message": f"Update {file_path.name}",
-                    "content": encoded,
+                timeout=15,
+            )
+            metadata_response.raise_for_status()
+            payload = metadata_response.json()
+            payload_data = {
+                "message": f"Update {file_path.name}",
+                "content": encoded,
+            }
+            if payload.get("sha"):
+                payload_data["sha"] = payload["sha"]
+
+            put_response = requests.put(
+                url,
+                headers={
+                    "Authorization": f"token {token}",
+                    "Accept": "application/vnd.github+json",
                 },
+                json=payload_data,
                 timeout=20,
             )
-            response.raise_for_status()
+            put_response.raise_for_status()
             return SyncStatus("Saved locally and synced to GitHub.", is_ok=True)
-        except requests.RequestException:
-            return SyncStatus("Saved locally, but GitHub sync failed.", is_ok=False)
+        except requests.RequestException as exc:
+            detail = getattr(exc.response, "text", "") or str(exc)
+            return SyncStatus(
+                f"Saved locally, but GitHub sync failed: {detail or 'unknown error'}",
+                is_ok=False,
+            )
