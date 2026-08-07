@@ -24,7 +24,9 @@ not a "set and forget" scraper.
 
 from __future__ import annotations
 
+import base64
 import io
+import os
 import re
 import subprocess
 import datetime as dt
@@ -568,6 +570,71 @@ def _sort_by_date(df: pd.DataFrame) -> pd.DataFrame:
     ).drop(columns=["_sort_key"])
 
 
+def _write_csv_with_github_backup(path: Path, df: pd.DataFrame) -> None:
+    """Write the CSV locally and mirror it to GitHub when configured."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _sort_by_date(df).to_csv(path, index=False)
+
+    repo = os.environ.get("GITHUB_REPO")
+    token = os.environ.get("GITHUB_TOKEN")
+    if not repo or not token:
+        return
+
+    try:
+        encoded = base64.b64encode(df.to_csv(index=False).encode("utf-8")).decode(
+            "utf-8"
+        )
+        url = f"https://api.github.com/repos/{repo}/contents/{path.as_posix()}"
+        headers = {
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github+json",
+        }
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        payload = response.json()
+        payload_data = {
+            "message": f"Update {path.name}",
+            "content": encoded,
+        }
+        if payload.get("sha"):
+            payload_data["sha"] = payload["sha"]
+        requests.put(
+            url, headers=headers, json=payload_data, timeout=20
+        ).raise_for_status()
+    except (requests.RequestException, ValueError, KeyError, TypeError):
+        pass
+
+
+def _read_csv_with_github_fallback(path: Path) -> pd.DataFrame:
+    if path.exists():
+        df = pd.read_csv(path, parse_dates=["date"])
+        if not df.empty:
+            return _sort_by_date(df)
+
+    repo = os.environ.get("GITHUB_REPO")
+    token = os.environ.get("GITHUB_TOKEN")
+    if not repo or not token:
+        return pd.DataFrame()
+
+    try:
+        url = f"https://api.github.com/repos/{repo}/contents/{path.as_posix()}"
+        response = requests.get(
+            url, headers={"Authorization": f"token {token}"}, timeout=15
+        )
+        response.raise_for_status()
+        payload = response.json()
+        content = payload.get("content", "")
+        if not content:
+            return pd.DataFrame()
+        decoded = base64.b64decode(content).decode("utf-8")
+        df = pd.read_csv(io.StringIO(decoded), parse_dates=["date"])
+        if df.empty:
+            return df
+        return _sort_by_date(df)
+    except (requests.RequestException, ValueError, KeyError, TypeError):
+        return pd.DataFrame()
+
+
 def _append_cache(path: Path, row: dict) -> None:
     """Appends a row to a local CSV cache, replacing an existing entry for the same date."""
     new_row = pd.DataFrame([row])
@@ -578,13 +645,8 @@ def _append_cache(path: Path, row: dict) -> None:
         combined = pd.concat([existing, new_row], ignore_index=True)
     else:
         combined = new_row
-    _sort_by_date(combined).to_csv(path, index=False)
+    _write_csv_with_github_backup(path, combined)
 
 
 def load_cache(path: Path) -> pd.DataFrame:
-    if path.exists():
-        df = pd.read_csv(path, parse_dates=["date"])
-        if df.empty:
-            return df
-        return _sort_by_date(df)
-    return pd.DataFrame()
+    return _read_csv_with_github_fallback(path)

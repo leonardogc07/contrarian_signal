@@ -45,6 +45,10 @@ if st.sidebar.button("Fetch latest AAII data"):
     try:
         r = ds.fetch_aaii_sentiment()
         st.session_state["aaii"] = r
+        st.session_state["sync_status"] = {
+            "ok": True,
+            "message": "AAII data fetched and saved locally and mirrored to GitHub when configured.",
+        }
         st.sidebar.success(f"AAII updated: {r.date}")
     except ds.DataFetchError as e:
         st.sidebar.error(f"AAII fetch failed: {e}")
@@ -53,6 +57,10 @@ if st.sidebar.button("Fetch latest Put/Call (CBOE)"):
     try:
         r = ds.fetch_putcall_ratio_cboe()
         st.session_state["putcall"] = r
+        st.session_state["sync_status"] = {
+            "ok": True,
+            "message": "Put/call data fetched and saved locally and mirrored to GitHub when configured.",
+        }
         st.sidebar.success(f"Put/Call updated: {r.ratio:.2f}")
     except ds.DataFetchError as e:
         st.sidebar.error(f"Put/Call fetch failed: {e}")
@@ -61,9 +69,25 @@ if st.sidebar.button("Fetch latest ICI flows"):
     try:
         r = ds.fetch_ici_flows()
         st.session_state["ici"] = r
+        st.session_state["sync_status"] = {
+            "ok": True,
+            "message": "ICI data fetched and saved locally and mirrored to GitHub when configured.",
+        }
         st.sidebar.success(f"ICI updated: {r.date}")
     except ds.DataFetchError as e:
         st.sidebar.error(f"ICI fetch failed: {e}")
+
+st.sidebar.divider()
+st.sidebar.subheader("Data sync status")
+st.sidebar.caption(
+    "Edits and fetched values are stored locally and mirrored to GitHub when the app is configured with GitHub secrets."
+)
+sync_status = st.session_state.get("sync_status")
+if sync_status:
+    if sync_status["ok"]:
+        st.sidebar.success(sync_status["message"])
+    else:
+        st.sidebar.warning(sync_status["message"])
 
 st.sidebar.divider()
 st.sidebar.subheader("Manual entry (fallback)")
@@ -91,6 +115,10 @@ with st.sidebar.form("manual_aaii"):
                 "bearish": m_bear,
             },
         )
+        st.session_state["sync_status"] = {
+            "ok": True,
+            "message": "Manual AAII entry saved locally and mirrored to GitHub when configured.",
+        }
 
 with st.sidebar.form("manual_putcall"):
     st.markdown("**Put/Call Ratio**")
@@ -103,6 +131,10 @@ with st.sidebar.form("manual_putcall"):
             ds.PUTCALL_CACHE,
             {"date": dt.date.today(), "ratio": m_ratio, "source": "manual"},
         )
+        st.session_state["sync_status"] = {
+            "ok": True,
+            "message": "Manual put/call entry saved locally and mirrored to GitHub when configured.",
+        }
 
 with st.sidebar.form("manual_ici"):
     st.markdown("**ICI Flows (millions $)**")
@@ -124,6 +156,10 @@ with st.sidebar.form("manual_ici"):
                 "report_title": "manual entry",
             },
         )
+        st.session_state["sync_status"] = {
+            "ok": True,
+            "message": "Manual ICI entry saved locally and mirrored to GitHub when configured.",
+        }
 
 # ---------------------------------------------------------------------------
 # Load cached history

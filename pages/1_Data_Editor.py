@@ -53,7 +53,12 @@ for dataset_name, tab in zip(CSV_FILES.keys(), tabs):
             f"Save {dataset_name} Changes", key=f"save_{dataset_name}", type="primary"
         ):
             try:
-                dm.save_data(dataset_name, edited_df)
-                st.success(f"{dataset_name} successfully overwritten and saved!")
+                status = dm.save_data(dataset_name, edited_df)
+                if status.is_ok:
+                    st.success(f"{dataset_name} saved. {status.message}")
+                else:
+                    st.warning(
+                        f"{dataset_name} saved locally but needs attention: {status.message}"
+                    )
             except Exception as e:
                 st.error(f"Error saving {dataset_name}: {e}")

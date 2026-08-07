@@ -1,6 +1,9 @@
+import base64
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -86,6 +89,25 @@ class ICIParserTests(unittest.TestCase):
                 [d.strftime("%Y-%m-%d") for d in result["date"].tolist()],
                 ["2024-01-01", "2024-01-02", "2024-01-03"],
             )
+
+    def test_fetch_data_reads_github_backed_csv_when_configured(self):
+        with patch.dict(
+            os.environ,
+            {"GITHUB_REPO": "owner/repo", "GITHUB_TOKEN": "token"},
+            clear=False,
+        ):
+            with patch("data_manager.requests.get") as mock_get:
+                mock_get.return_value.ok = True
+                mock_get.return_value.json.return_value = {
+                    "content": base64.b64encode(b"date,value\n2024-01-01,7\n").decode(
+                        "utf-8"
+                    )
+                }
+
+                manager = CSVDataManager({"Test": "data/test.csv"})
+                result = manager.fetch_data("Test")
+
+        self.assertEqual(result["value"].tolist(), [7])
 
 
 if __name__ == "__main__":
