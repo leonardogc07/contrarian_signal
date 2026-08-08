@@ -42,40 +42,55 @@ st.sidebar.markdown(
 )
 
 if st.sidebar.button("Fetch latest AAII data"):
-    try:
-        r = ds.fetch_aaii_sentiment()
-        st.session_state["aaii"] = r
-        st.session_state["sync_status"] = {
-            "ok": True,
-            "message": "AAII data fetched and saved locally and mirrored to GitHub when configured.",
-        }
-        st.sidebar.success(f"AAII updated: {r.date}")
-    except ds.DataFetchError as e:
-        st.sidebar.error(f"AAII fetch failed: {e}")
+    if ds._cache_has_date(ds.AAII_CACHE, dt.date.today()):
+        message = "AAII data for today is already present; no duplicate was added."
+        st.session_state["sync_status"] = {"ok": True, "message": message}
+        st.sidebar.info(message)
+    else:
+        try:
+            r = ds.fetch_aaii_sentiment()
+            st.session_state["aaii"] = r
+            st.session_state["sync_status"] = {
+                "ok": True,
+                "message": "AAII data fetched and saved locally and mirrored to GitHub when configured.",
+            }
+            st.sidebar.success(f"AAII updated: {r.date}")
+        except ds.DataFetchError as e:
+            st.sidebar.error(f"AAII fetch failed: {e}")
 
 if st.sidebar.button("Fetch latest Put/Call (CBOE)"):
-    try:
-        r = ds.fetch_putcall_ratio_cboe()
-        st.session_state["putcall"] = r
-        st.session_state["sync_status"] = {
-            "ok": True,
-            "message": "Put/call data fetched and saved locally and mirrored to GitHub when configured.",
-        }
-        st.sidebar.success(f"Put/Call updated: {r.ratio:.2f}")
-    except ds.DataFetchError as e:
-        st.sidebar.error(f"Put/Call fetch failed: {e}")
+    if ds._cache_has_date(ds.PUTCALL_CACHE, dt.date.today()):
+        message = "Put/call data for today is already present; no duplicate was added."
+        st.session_state["sync_status"] = {"ok": True, "message": message}
+        st.sidebar.info(message)
+    else:
+        try:
+            r = ds.fetch_putcall_ratio_cboe()
+            st.session_state["putcall"] = r
+            st.session_state["sync_status"] = {
+                "ok": True,
+                "message": "Put/call data fetched and saved locally and mirrored to GitHub when configured.",
+            }
+            st.sidebar.success(f"Put/Call updated: {r.ratio:.2f}")
+        except ds.DataFetchError as e:
+            st.sidebar.error(f"Put/Call fetch failed: {e}")
 
 if st.sidebar.button("Fetch latest ICI flows"):
-    try:
-        r = ds.fetch_ici_flows()
-        st.session_state["ici"] = r
-        st.session_state["sync_status"] = {
-            "ok": True,
-            "message": "ICI data fetched and saved locally and mirrored to GitHub when configured.",
-        }
-        st.sidebar.success(f"ICI updated: {r.date}")
-    except ds.DataFetchError as e:
-        st.sidebar.error(f"ICI fetch failed: {e}")
+    if ds._cache_has_date(ds.ICI_CACHE, dt.date.today()):
+        message = "ICI data for today is already present; no duplicate was added."
+        st.session_state["sync_status"] = {"ok": True, "message": message}
+        st.sidebar.info(message)
+    else:
+        try:
+            r = ds.fetch_ici_flows()
+            st.session_state["ici"] = r
+            st.session_state["sync_status"] = {
+                "ok": True,
+                "message": "ICI data fetched and saved locally and mirrored to GitHub when configured.",
+            }
+            st.sidebar.success(f"ICI updated: {r.date}")
+        except ds.DataFetchError as e:
+            st.sidebar.error(f"ICI fetch failed: {e}")
 
 st.sidebar.divider()
 st.sidebar.subheader("Data sync status")
@@ -100,66 +115,83 @@ with st.sidebar.form("manual_aaii"):
     m_bull = st.number_input("Bullish %", 0.0, 100.0, 35.0)
     m_bear = st.number_input("Bearish %", 0.0, 100.0, 35.0)
     if st.form_submit_button("Save AAII manual entry"):
-        st.session_state["aaii"] = ds.AAIIReading(
-            date=dt.date.today(),
-            bullish=m_bull,
-            neutral=max(0.0, 100 - m_bull - m_bear),
-            bearish=m_bear,
-        )
-        ds._append_cache(
-            ds.AAII_CACHE,
-            {
-                "date": dt.date.today(),
-                "bullish": m_bull,
-                "neutral": max(0.0, 100 - m_bull - m_bear),
-                "bearish": m_bear,
-            },
-        )
-        st.session_state["sync_status"] = {
-            "ok": True,
-            "message": "Manual AAII entry saved locally and mirrored to GitHub when configured.",
-        }
+        if ds._cache_has_date(ds.AAII_CACHE, dt.date.today()):
+            message = "AAII data for today is already present; no duplicate was added."
+            st.session_state["sync_status"] = {"ok": True, "message": message}
+            st.sidebar.info(message)
+        else:
+            st.session_state["aaii"] = ds.AAIIReading(
+                date=dt.date.today(),
+                bullish=m_bull,
+                neutral=max(0.0, 100 - m_bull - m_bear),
+                bearish=m_bear,
+            )
+            ds._append_cache(
+                ds.AAII_CACHE,
+                {
+                    "date": dt.date.today(),
+                    "bullish": m_bull,
+                    "neutral": max(0.0, 100 - m_bull - m_bear),
+                    "bearish": m_bear,
+                },
+            )
+            st.session_state["sync_status"] = {
+                "ok": True,
+                "message": "Manual AAII entry saved locally and mirrored to GitHub when configured.",
+            }
 
 with st.sidebar.form("manual_putcall"):
     st.markdown("**Put/Call Ratio**")
     m_ratio = st.number_input("Ratio", 0.0, 3.0, 0.7, step=0.01)
     if st.form_submit_button("Save Put/Call manual entry"):
-        st.session_state["putcall"] = ds.PutCallReading(
-            date=dt.date.today(), ratio=m_ratio, source="manual"
-        )
-        ds._append_cache(
-            ds.PUTCALL_CACHE,
-            {"date": dt.date.today(), "ratio": m_ratio, "source": "manual"},
-        )
-        st.session_state["sync_status"] = {
-            "ok": True,
-            "message": "Manual put/call entry saved locally and mirrored to GitHub when configured.",
-        }
+        if ds._cache_has_date(ds.PUTCALL_CACHE, dt.date.today()):
+            message = (
+                "Put/call data for today is already present; no duplicate was added."
+            )
+            st.session_state["sync_status"] = {"ok": True, "message": message}
+            st.sidebar.info(message)
+        else:
+            st.session_state["putcall"] = ds.PutCallReading(
+                date=dt.date.today(), ratio=m_ratio, source="manual"
+            )
+            ds._append_cache(
+                ds.PUTCALL_CACHE,
+                {"date": dt.date.today(), "ratio": m_ratio, "source": "manual"},
+            )
+            st.session_state["sync_status"] = {
+                "ok": True,
+                "message": "Manual put/call entry saved locally and mirrored to GitHub when configured.",
+            }
 
 with st.sidebar.form("manual_ici"):
     st.markdown("**ICI Flows (millions $)**")
     m_equity = st.number_input("Equity flow", value=0.0, step=100.0)
     m_bond = st.number_input("Bond flow", value=0.0, step=100.0)
     if st.form_submit_button("Save ICI manual entry"):
-        st.session_state["ici"] = ds.ICIFlowReading(
-            date=dt.date.today(),
-            equity_flow_millions=m_equity,
-            bond_flow_millions=m_bond,
-            report_title="manual entry",
-        )
-        ds._append_cache(
-            ds.ICI_CACHE,
-            {
-                "date": dt.date.today(),
-                "equity_flow_millions": m_equity,
-                "bond_flow_millions": m_bond,
-                "report_title": "manual entry",
-            },
-        )
-        st.session_state["sync_status"] = {
-            "ok": True,
-            "message": "Manual ICI entry saved locally and mirrored to GitHub when configured.",
-        }
+        if ds._cache_has_date(ds.ICI_CACHE, dt.date.today()):
+            message = "ICI data for today is already present; no duplicate was added."
+            st.session_state["sync_status"] = {"ok": True, "message": message}
+            st.sidebar.info(message)
+        else:
+            st.session_state["ici"] = ds.ICIFlowReading(
+                date=dt.date.today(),
+                equity_flow_millions=m_equity,
+                bond_flow_millions=m_bond,
+                report_title="manual entry",
+            )
+            ds._append_cache(
+                ds.ICI_CACHE,
+                {
+                    "date": dt.date.today(),
+                    "equity_flow_millions": m_equity,
+                    "bond_flow_millions": m_bond,
+                    "report_title": "manual entry",
+                },
+            )
+            st.session_state["sync_status"] = {
+                "ok": True,
+                "message": "Manual ICI entry saved locally and mirrored to GitHub when configured.",
+            }
 
 # ---------------------------------------------------------------------------
 # Load cached history

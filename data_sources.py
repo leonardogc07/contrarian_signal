@@ -431,6 +431,26 @@ def parse_ici_flows_from_html(html: str) -> tuple[Optional[float], Optional[floa
     return equity_flow, bond_flow
 
 
+def _fetch_html_with_fallback(url: str) -> str:
+    """Try the primary page first, then a public text mirror if the site blocks direct requests."""
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        return response.text
+    except requests.RequestException:
+        pass
+
+    mirror_url = f"https://r.jina.ai/http://{url}"
+    try:
+        mirror_response = requests.get(mirror_url, timeout=REQUEST_TIMEOUT + 15)
+        mirror_response.raise_for_status()
+        return mirror_response.text
+    except requests.RequestException as exc:
+        raise DataFetchError(
+            f"Could not reach ICI flows page directly or via mirror: {exc}"
+        ) from exc
+
+
 def fetch_ici_flows() -> ICIFlowReading:
     """
     Finds the most recent "Combined Estimated Long-Term Fund Flows" report
@@ -445,13 +465,12 @@ def fetch_ici_flows() -> ICIFlowReading:
     straight off the ICI page.
     """
     try:
-        resp = requests.get(ICI_URL, headers=HEADERS, timeout=REQUEST_TIMEOUT)
-        resp.raise_for_status()
-    except requests.RequestException as e:
+        html = _fetch_html_with_fallback(ICI_URL)
+    except DataFetchError as e:
         raise DataFetchError(f"Could not reach ICI flows page: {e}") from e
 
-    soup = BeautifulSoup(resp.text, "lxml")
-    inline_equity_flow, inline_bond_flow = parse_ici_flows_from_html(resp.text)
+    soup = BeautifulSoup(html, "lxml")
+    inline_equity_flow, inline_bond_flow = parse_ici_flows_from_html(html)
     if inline_equity_flow is not None and inline_bond_flow is not None:
         reading = ICIFlowReading(
             date=dt.date.today(),
@@ -635,8 +654,24 @@ def _read_csv_with_github_fallback(path: Path) -> pd.DataFrame:
         return pd.DataFrame()
 
 
+def _cache_has_date(path: Path, expected_date: object) -> bool:
+    """Return True when a cache file already contains a row for the expected date."""
+    if not path.exists():
+        return False
+
+    try:
+        existing = pd.read_csv(path)
+    except Exception:
+        return False
+
+    if existing.empty or "date" not in existing.columns:
+        return False
+
+    return bool((existing["date"].astype(str) == str(expected_date)).any())
+
+
 def _append_cache(path: Path, row: dict) -> None:
-    """Appends a row to a local CSV cache, replacing an existing entry for the same date."""
+    """Append a row to a local CSV cache, replacing an existing entry for the same date."""
     new_row = pd.DataFrame([row])
     if path.exists():
         existing = pd.read_csv(path)

@@ -3,9 +3,11 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pandas as pd
+import requests
 
 import data_sources as ds
 from data_manager import CSVDataManager
@@ -55,6 +57,44 @@ class ICIParserTests(unittest.TestCase):
 
         self.assertEqual(equity_flow, -29910.0)
         self.assertEqual(bond_flow, 3730.0)
+
+    def test_fetch_text_with_fallback_uses_mirror_when_direct_request_is_blocked(self):
+        with patch("data_sources.requests.get") as mock_get:
+            mock_get.side_effect = [
+                SimpleNamespace(
+                    status_code=403,
+                    text="<html>Access Denied</html>",
+                    raise_for_status=lambda: (_ for _ in ()).throw(
+                        requests.HTTPError("403")
+                    ),
+                ),
+                SimpleNamespace(
+                    status_code=200,
+                    text="<html><body>Equity funds had estimated outflows of $12 billion.</body></html>",
+                    raise_for_status=lambda: None,
+                ),
+            ]
+
+            html = ds._fetch_html_with_fallback(
+                "https://www.ici.org/research/stats/flows"
+            )
+
+        self.assertIn("Equity funds", html)
+        self.assertEqual(mock_get.call_count, 2)
+
+    def test_cache_has_date_detects_existing_entry(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "cache.csv"
+            pd.DataFrame(
+                {
+                    "date": ["2026-07-13"],
+                    "equity_flow_millions": [100.0],
+                    "bond_flow_millions": [200.0],
+                }
+            ).to_csv(path, index=False)
+
+            self.assertTrue(ds._cache_has_date(path, "2026-07-13"))
+            self.assertFalse(ds._cache_has_date(path, "2026-07-14"))
 
     def test_fetch_data_sorts_rows_by_date_when_present(self):
         with tempfile.TemporaryDirectory() as tmpdir:
